@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 from bot.core.health_server import start_health_server
 
 
-class LifelogBot(commands.Bot):
-    """Lifelog Discord Bot with Extension support."""
+class AnisecordBot(commands.Bot):
+    """Anisecord Discord Bot with Extension support."""
     
     def __init__(self):
         # Load environment variables
@@ -29,9 +29,9 @@ class LifelogBot(commands.Bot):
         
         # Load OSS extensions
         oss_extensions = [
-            'bot.cogs.basic_commands',
-            'bot.cogs.gemini_chat', 
-            'bot.cogs.nutrition_coach'
+            'bot.features.common.basic_commands',
+            'bot.features.common.gemini_chat', 
+            'bot.features.nutrition.cog'
         ]
         
         for extension in oss_extensions:
@@ -55,7 +55,7 @@ class LifelogBot(commands.Bot):
 
 def main():
     """Main entry point for the bot."""
-    bot = LifelogBot()
+    bot = AnisecordBot()
     
     # Start health check server
     print(f"Starting health check server on port {bot.port}...")
