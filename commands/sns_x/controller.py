@@ -1,7 +1,5 @@
 from typing import Dict, Any, Optional
 import datetime
-import threading
-import requests
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
@@ -94,48 +92,12 @@ class SnsXTodayController:
         messages = self.repository.fetch_messages(channel_id, today_start, today_end)
         
         # 5. Generate Draft
-        # Handle Async (Deferred Response)
-        token = interaction_data.get('token')
-        application_id = interaction_data.get('application_id')
-        
-        if not token or not application_id:
-            # Fallback for testing or incomplete data
-            return {'type': 4, 'data': {'content': 'Missing interaction metadata.'}}
-
-        # Start Background Thread
-        thread = threading.Thread(
-            target=self._process_background,
-            args=(application_id, token, channel_id, today_start, today_end)
-        )
-        thread.start()
+        draft = self.repository.generate_draft(messages)
 
         return {
-            'type': 5, # DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+            'type': 4,
+            'data': {'content': f"Here is your X post draft for Today ({draft.source_posts_count} posts):\n\n{draft.content}"}
         }
-
-    def _process_background(self, application_id: str, token: str, channel_id: str, from_date: datetime.datetime, to_date: datetime.datetime):
-        """
-        Background task to fetch messages, generate draft, and update the interaction.
-        """
-        webhook_url = f"https://discord.com/api/v10/webhooks/{application_id}/{token}/messages/@original"
-        
-        try:
-            # Step A: Fetch messages
-            messages = self.repository.fetch_messages(channel_id, from_date, to_date)
-            
-            # Step B: Generate Draft
-            draft = self.repository.generate_draft(messages)
-            
-            content = f"Here is your X post draft for Today ({draft.source_posts_count} posts):\n\n{draft.content}"
-            
-            # Step C: Patch Response
-            payload = {'content': content}
-            requests.patch(webhook_url, json=payload)
-            
-        except Exception as e:
-            print(f"Background processing failed: {e}")
-            error_payload = {'content': f"An error occurred while processing your request: {str(e)}"}
-            requests.patch(webhook_url, json=error_payload)
 
 class SnsXController(BaseCommand):
     def __init__(self):
@@ -191,47 +153,15 @@ class SnsXController(BaseCommand):
                 'data': {'content': 'Invalid date format. Please use YYYY-MM-DD.'}
             }
 
-        # Handle Async (Deferred Response)
-        token = interaction_data.get('token')
-        application_id = interaction_data.get('application_id')
+        # 3. Call Repository
+        # Step A: Fetch messages
+        messages = self.repository.fetch_messages(channel_id, from_date, to_date)
         
-        if not token or not application_id:
-            # Fallback for testing or incomplete data
-            return {'type': 4, 'data': {'content': 'Missing interaction metadata.'}}
+        # Step B: Generate Draft
+        draft = self.repository.generate_draft(messages)
 
-        # Start Background Thread
-        thread = threading.Thread(
-            target=self._process_background,
-            args=(application_id, token, channel_id, from_date, to_date)
-        )
-        thread.start()
-
-        # 4. Return Immediate Deferred Response
+        # 4. Return Response
         return {
-            'type': 5, # DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
-            # No data needed for type 5 usually, but 'flags' can be set here if ephemeral needed
+            'type': 4,
+            'data': {'content': f"Here is your X post draft (based on {draft.source_posts_count} posts):\n\n{draft.content}"}
         }
-
-    def _process_background(self, application_id: str, token: str, channel_id: str, from_date: datetime.datetime, to_date: datetime.datetime):
-        """
-        Background task to fetch messages, generate draft, and update the interaction.
-        """
-        webhook_url = f"https://discord.com/api/v10/webhooks/{application_id}/{token}/messages/@original"
-        
-        try:
-            # Step A: Fetch messages
-            messages = self.repository.fetch_messages(channel_id, from_date, to_date)
-            
-            # Step B: Generate Draft
-            draft = self.repository.generate_draft(messages)
-            
-            content = f"Here is your X post draft (based on {draft.source_posts_count} posts):\n\n{draft.content}"
-            
-            # Step C: Patch Response
-            payload = {'content': content}
-            requests.patch(webhook_url, json=payload)
-            
-        except Exception as e:
-            print(f"Background processing failed: {e}")
-            error_payload = {'content': f"An error occurred while processing your request: {str(e)}"}
-            requests.patch(webhook_url, json=error_payload)
