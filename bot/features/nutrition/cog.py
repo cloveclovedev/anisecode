@@ -2,7 +2,8 @@ import traceback
 from discord import Interaction, app_commands, Attachment
 from discord.ext import commands
 
-from bot.utils.gemini_helpers import call_gemini_api, download_and_encode_image
+from bot.services.llm.repository import LLMRepository
+from bot.services.llm.utils import download_and_encode_image
 
 
 def create_nutrition_coaching_prompt(description: str = None, image_count: int = 0) -> str:
@@ -46,6 +47,10 @@ class NutritionCoachCog(commands.Cog):
     
     def __init__(self, bot):
         self.bot = bot
+        self.llm_repository = LLMRepository(
+            model_name="gemini/gemini-2.5-flash",
+            api_key=self.bot.gemini_api_key
+        )
 
     @app_commands.command(name="meal", description="Get nutrition coaching for your meal photos and/or description.")
     @app_commands.describe(
@@ -115,11 +120,8 @@ class NutritionCoachCog(commands.Cog):
                 })
 
             # Call Gemini API
-            print("Calling Gemini API for meal coaching")
-            response_text = await call_gemini_api(
-                content=content,
-                api_key=self.bot.gemini_api_key
-            )
+            print("Calling Gemini API for meal coaching via Repository")
+            response_text = await self.llm_repository.generate_content(content)
             print("Received meal coaching from Gemini")
 
         except Exception as e:
