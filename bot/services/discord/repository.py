@@ -29,14 +29,16 @@ class DiscordRepository:
             posts.append(self._to_discord_post(msg))
 
         # 2. Identify Threads to check (Active + Archived)
-        threads_to_check = list(channel.threads) # Active threads
+        threads_to_check = []
+        if hasattr(channel, 'threads'):
+             threads_to_check = list(channel.threads) # Active threads
         
-        # Add archived threads modified after start time
-        try:
-             async for thread in channel.archived_threads(after=after):
-                 threads_to_check.append(thread)
-        except Exception as e:
-            print(f"Failed to fetch archived threads: {e}")
+             # Add archived threads modified after start time
+             try:
+                  async for thread in channel.archived_threads(after=after):
+                      threads_to_check.append(thread)
+             except Exception as e:
+                 print(f"Failed to fetch archived threads: {e}")
 
         # 3. Fetch from Threads
         for thread in threads_to_check:
